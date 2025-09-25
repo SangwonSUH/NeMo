@@ -115,6 +115,7 @@ class GreedySequenceGenerator(ConfidenceMethodMixin):
         self.n_samples = n_samples
         self.temperature = temperature
         self.preserve_step_confidence = preserve_step_confidence
+        self.device = next(self.decoder.parameters()).device
 
         # set confidence calculation method
         self.num_tokens = getattr(self.classifier.mlp, f'layer{self.classifier.mlp.layers - 1}').out_features
@@ -170,7 +171,6 @@ class GreedySequenceGenerator(ConfidenceMethodMixin):
         with and maximum allowed number of tokens to be generated.
         """
 
-        decoder_parameter = next(self.decoder.parameters())
         batch_size = self.batch_size
 
         # for encoder-decoder generation, maximum length of generated sequence
@@ -189,7 +189,7 @@ class GreedySequenceGenerator(ConfidenceMethodMixin):
             tgt = decoder_input_ids
             batch_size, tgt_len = decoder_input_ids.size()
         else:
-            tgt = torch.zeros(batch_size, 1).long().fill_(self.bos).to(decoder_parameter.device)
+            tgt = torch.zeros(batch_size, 1).long().fill_(self.bos).to(self.device)
             tgt_len = 1
         max_generation_length = max_seq_length - tgt_len
 
@@ -211,8 +211,7 @@ class GreedySequenceGenerator(ConfidenceMethodMixin):
 
         # pad profile tracks sequences ending with <eos> token to replace
         # everything after <eos> with <pad> token
-        decoder_parameter = next(self.decoder.parameters())
-        pad_profile = torch.zeros(batch_size).long().to(decoder_parameter.device)
+        pad_profile = torch.zeros(batch_size).long().to(self.device)
 
         if self.preserve_step_confidence:
             if encoder_hidden_states is None:
@@ -724,6 +723,7 @@ class EnsembleBeamSearchSequenceGenerator:
         self.num_models = len(encoders)
         self.language_model = language_model
         self.fusion_coef = fusion_coef
+        self.device = next(self.decoders[0].parameters()).device
 
     @staticmethod
     def compute_len_penalty(lengths, alpha):
@@ -791,7 +791,6 @@ class EnsembleBeamSearchSequenceGenerator:
         with and maximum allowed number of tokens to be generated.
         """
 
-        decoder_parameter = next(self.decoders[0].parameters())
         batch_size = self.batch_size
 
         # for encoder-decoder generation, maximum length of generated sequence
@@ -810,7 +809,7 @@ class EnsembleBeamSearchSequenceGenerator:
             tgt = decoder_input_ids
             batch_size, tgt_len = decoder_input_ids.size()
         else:
-            tgt = torch.zeros(batch_size, 1).long().fill_(self.bos).to(decoder_parameter.device)
+            tgt = torch.zeros(batch_size, 1).long().fill_(self.bos).to(self.device)
             tgt_len = 1
         max_generation_length = max_seq_length - tgt_len
 
